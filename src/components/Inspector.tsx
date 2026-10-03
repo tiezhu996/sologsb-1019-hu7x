@@ -1,11 +1,11 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js';
 import { Button, Chip, Divider, Paper, Typography } from '@suid/material';
 import type { Theme } from '../types';
-import type { useCodingStore } from '../store/coding-store';
+import type { CodingStore } from '../store/coding-store';
 
-type Store = ReturnType<typeof useCodingStore>;
-
-export default function Inspector(props: { store: Store }) {
+export default function Inspector(props: { store: CodingStore; onOpenConflicts: () => void }) {
+  const [name, setName] = createSignal('');
+  const [parentId, setParentId] = createSignal('');
   const [definition, setDefinition] = createSignal('');
   const [memo, setMemo] = createSignal('');
   const [example, setExample] = createSignal('');
@@ -20,14 +20,63 @@ export default function Inspector(props: { store: Store }) {
     return props.store.state.segments.filter((item) => item.assignments.A.includes(current.id) || item.assignments.B.includes(current.id));
   });
 
+  const conflictFor = (unit: string) => props.store.conflicts().find((item) => item.unit === unit);
+  const FieldConflict = (fieldProps: { unit: string }) => (
+    <Show when={conflictFor(fieldProps.unit)}>
+      {(conflict) => (
+        <button class="field-conflict" onClick={props.onOpenConflicts}>
+          ⚠ 两页结果不同，等待选择（{conflict().candidates.length} 份）→
+        </button>
+      )}
+    </Show>
+  );
+
   createEffect(() => {
     const current = theme();
+    setName(current?.name ?? '');
+    setParentId(current?.parentId ?? '');
     setDefinition(current?.definition ?? '');
     setMemo(current?.memo ?? '');
     setExample('');
   });
 
   createEffect(() => setSegmentNote(segment()?.note ?? ''));
+
+  const saveName = () => {
+    const current = theme();
+    if (!current) return;
+    const value = name().trim();
+    if (value && value !== current.name) props.store.updateTheme(current.id, { name: value }, '主题名称');
+    else setName(current.name);
+  };
+
+  const saveParent = () => {
+    const current = theme();
+    if (!current || current.id === parentId()) return;
+    // 不能挂到自己或自己的后代下，避免层级成环
+    if (parentId()) {
+      let ancestor: Theme | undefined = props.store.state.themes.find((item) => item.id === parentId());
+      while (ancestor) {
+        if (ancestor.id === current.id) return;
+        ancestor = ancestor.parentId ? props.store.state.themes.find((item) => item.id === ancestor!.parentId) : undefined;
+      }
+    }
+    props.store.updateTheme(current.id, { parentId: parentId() || null }, '主题层级');
+  };
+
+  const descendantIds = createMemo(() => {
+    const current = theme();
+    if (!current) return new Set<string>();
+    const ids = new Set<string>([current.id]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      props.store.state.themes.forEach((item) => {
+        if (item.parentId && ids.has(item.parentId) && !ids.has(item.id)) { ids.add(item.id); grew = true; }
+      });
+    }
+    return ids;
+  });
 
   const saveThemeField = (field: 'definition' | 'memo', value: string) => {
     const current = theme();
@@ -48,6 +97,9 @@ export default function Inspector(props: { store: Store }) {
           <Typography variant="overline">03 / 研究记录</Typography>
           <Typography variant="h6">主题与判断</Typography>
         </div>
+        <Show when={props.store.conflicts().length}>
+          <Chip size="small" color="warning" label={`${props.store.conflicts().length} 个冲突待处理`} onClick={props.onOpenConflicts} />
+        </Show>
       </div>
       <div class="inspector-tabs">
         <button classList={{ active: section() === 'theme' }} onClick={() => setSection('theme')}>主题记事</button>
@@ -57,7 +109,7 @@ export default function Inspector(props: { store: Store }) {
       <Divider />
 
       <Show when={section() === 'theme'}>
-        <Show when={theme()} fallback={<div class="empty-state">从中间主题树选择一个主题，添加定义、备忘录和示例。</div>}>
+        <Show when={theme()} fallback={<div class="empty-state">从中间主题树选择一个主题，维护名称、层级、定义、备忘录和示例。每个字段都是独立的合并单元。</div>}>
           {(current) => <>
             <div class="selected-theme-title"><span style={{ background: current().color }} /> <strong>{current().name}</strong></div>
             <Show when={segment()}>
@@ -67,18 +119,32 @@ export default function Inspector(props: { store: Store }) {
                 <button class="link-button" onClick={() => document.querySelector('.segment-card.active')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>↗ 回到原文位置</button>
               </div>}
             </Show>
+            <label class="field-label">名称
+              <input class="native-input" value={name()} onInput={(event) => setName(event.currentTarget.value)} onBlur={saveName} />
+            </label>
+            <FieldConflict unit={`theme:${current().id}:name`} />
+            <label class="field-label">层级（上级主题）
+              <select class="native-select" value={parentId()} onChange={(event) => setParentId(event.currentTarget.value)} onBlur={saveParent}>
+                <option value="">一级主题（无上级）</option>
+                <For each={props.store.state.themes.filter((item) => !descendantIds().has(item.id))}>{(item) => <option value={item.id}>{item.name}</option>}</For>
+              </select>
+            </label>
+            <FieldConflict unit={`theme:${current().id}:parentId`} />
             <label class="field-label">操作定义
               <textarea class="native-textarea" value={definition()} onInput={(event) => setDefinition(event.currentTarget.value)} onBlur={() => saveThemeField('definition', definition())} placeholder="说明什么内容应/不应归入该主题" />
             </label>
+            <FieldConflict unit={`theme:${current().id}:definition`} />
             <label class="field-label">研究备忘录
               <textarea class="native-textarea" value={memo()} onInput={(event) => setMemo(event.currentTarget.value)} onBlur={() => saveThemeField('memo', memo())} placeholder="记录判断边界、疑问或编码规则" />
             </label>
+            <FieldConflict unit={`theme:${current().id}:memo`} />
             <label class="field-label">添加典型示例
               <div class="inline-input">
                 <input class="native-input" value={example()} onInput={(event) => setExample(event.currentTarget.value)} placeholder="输入示例文本" />
                 <Button size="small" variant="contained" disabled={!example().trim()} onClick={() => { props.store.addExample(current().id, example()); setExample(''); }}>添加</Button>
               </div>
             </label>
+            <FieldConflict unit={`theme:${current().id}:examples`} />
             <Show when={current().examples.length} fallback={<div class="muted">暂无示例</div>}>
               <ul class="example-list"><For each={current().examples}>{(item) => <li>{item}</li>}</For></ul>
             </Show>
@@ -100,7 +166,7 @@ export default function Inspector(props: { store: Store }) {
       <Show when={section() === 'compare'}>
         <Show when={segment()} fallback={<div class="empty-state">请先从左侧正文选择片段。</div>}>
           {(activeSegment) => <>
-            <div class="compare-intro">比较同一位受访者在同一片段上的主题判断。任何不一致都会保留，直到研究者明确调整。</div>
+            <div class="compare-intro">两位编码者对同一片段的主题判断分别是独立变更单元，另一标签页的改动会自动合并，改到同一单元且结果不同时两份都保留，等待选择。</div>
             <div class="compare-grid">
               <div class="coder-column">
                 <div class="coder-header"><span class="avatar">A</span><strong>{props.store.state.coderA}</strong></div>
@@ -109,6 +175,7 @@ export default function Inspector(props: { store: Store }) {
                   <option value="">＋ 给编码者 A 添加主题</option>
                   <For each={props.store.orderedThemes()}>{(item) => <option value={item.id}>{item.name}</option>}</For>
                 </select>
+                <FieldConflict unit={`segment:${activeSegment().id}:assignA`} />
               </div>
               <div class="coder-column">
                 <div class="coder-header"><span class="avatar b">B</span><strong>{props.store.state.coderB}</strong></div>
@@ -117,6 +184,7 @@ export default function Inspector(props: { store: Store }) {
                   <option value="">＋ 给编码者 B 添加主题</option>
                   <For each={props.store.orderedThemes()}>{(item) => <option value={item.id}>{item.name}</option>}</For>
                 </select>
+                <FieldConflict unit={`segment:${activeSegment().id}:assignB`} />
               </div>
             </div>
             <Show when={activeSegment().assignments.A.join('|') !== activeSegment().assignments.B.join('|')} fallback={<div class="agreement">✓ 当前判断完全一致</div>}>
@@ -125,13 +193,14 @@ export default function Inspector(props: { store: Store }) {
             <label class="field-label">片段编码备忘
               <textarea class="native-textarea" value={segmentNote()} onInput={(event) => setSegmentNote(event.currentTarget.value)} onBlur={saveNote} placeholder="记录此片段的分歧处理或引文提示" />
             </label>
+            <FieldConflict unit={`segment:${activeSegment().id}:note`} />
           </>}
         </Show>
       </Show>
 
       <Show when={section() === 'audit'}>
         <div class="audit-summary">
-          <div><strong>{props.store.state.audit.length}</strong><span>次最近操作</span></div>
+          <div><strong>{props.store.state.audit.length}</strong><span>条共享操作记录</span></div>
           <div><strong>{citations().length}</strong><span>条当前主题引用</span></div>
         </div>
         <div class="audit-list">

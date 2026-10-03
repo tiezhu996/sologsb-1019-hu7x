@@ -29,7 +29,9 @@ export default function ThemeTree(props: { store: Store; onCreate: (parentId?: s
           const depth = () => {
             let current = theme;
             let level = 0;
-            while (current.parentId) {
+            const seen = new Set<string>();
+            while (current.parentId && !seen.has(current.id)) {
+              seen.add(current.id);
               level += 1;
               const parent = props.store.state.themes.find((item) => item.id === current.parentId);
               if (!parent) break;
@@ -39,11 +41,13 @@ export default function ThemeTree(props: { store: Store; onCreate: (parentId?: s
           };
           const assignmentA = () => activeSegment()?.assignments.A.includes(theme.id) ?? false;
           const assignmentB = () => activeSegment()?.assignments.B.includes(theme.id) ?? false;
+          const hasConflict = () => props.store.conflicts().some((item) => item.scope === 'theme' && item.entityId === theme.id);
           return (
-            <div class="theme-row" classList={{ active: props.store.state.activeThemeId === theme.id, disagree: assignmentA() !== assignmentB() }}>
+            <div class="theme-row" classList={{ active: props.store.state.activeThemeId === theme.id, disagree: assignmentA() !== assignmentB(), 'has-conflict': hasConflict() }}>
               <button class="theme-main" style={{ '--depth': depth(), '--theme-color': theme.color }} onClick={() => props.store.selectTheme(theme.id)}>
                 <span class="theme-color" />
                 <span class="theme-name">{theme.name}</span>
+                <Show when={hasConflict()}><span class="conflict-mini" title="该主题存在待处理的字段级冲突">冲突</span></Show>
                 <span class="theme-count">{countFor(theme.id)}</span>
               </button>
               <div class="theme-actions">

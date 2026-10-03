@@ -67,12 +67,13 @@ export default function TranscriptPanel(props: { store: Store }) {
       <div class="segment-list">
         <For each={segments()}>{(segment, index) => {
           const isActive = () => props.store.state.activeSegmentId === segment.id;
+          const hasConflict = () => props.store.conflicts().some((item) => item.scope === 'segment' && item.entityId === segment.id);
           const themeNames = () => [...new Set([...segment.assignments.A, ...segment.assignments.B])]
             .map((id) => props.store.state.themes.find((theme) => theme.id === id)?.name ?? '未知主题');
           return (
             <article
               class="segment-card"
-              classList={{ active: isActive() }}
+              classList={{ active: isActive(), 'has-conflict': hasConflict() }}
               onClick={() => props.store.selectSegment(segment.id)}
               tabIndex={0}
               onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') props.store.selectSegment(segment.id); }}
@@ -90,6 +91,7 @@ export default function TranscriptPanel(props: { store: Store }) {
                 <Show when={segment.assignments.A.join('|') !== segment.assignments.B.join('|')}>
                   <span class="conflict-dot" title="两位编码者判断不一致">分歧</span>
                 </Show>
+                <Show when={hasConflict()}><span class="conflict-dot merge" title="该片段存在待处理的标签页合并冲突">合并冲突</span></Show>
               </div>
               <p>{segment.text}</p>
               <Show when={themeNames().length}>
