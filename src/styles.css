@@ -139,6 +139,36 @@ blockquote { margin: 7px 0; color: #2c4843; font-family: "Songti SC", serif; lin
 .conflict-banner > div:first-child { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
 .conflict-banner > div:first-child span { opacity: .82; }
 .conflict-banner > div:last-child { display: flex; gap: 6px; }
+
+/* —— 字段级合并冲突中心 —— */
+.conflict-strip { padding: 16px 22px 0; }
+.conflict-panel { border: 1px solid #e2cdb4; }
+.conflict-heading { align-items: center; }
+.conflict-badge { padding: 4px 12px; border-radius: 999px; background: #edf1ee; color: #68746f; font-size: 11px; font-weight: 800; }
+.conflict-badge.has { background: #f6e3cd; color: #8a4e25; }
+.conflict-rule { margin: 10px 18px; padding: 9px 12px; border-radius: 8px; background: #fbf4ea; color: #7c5534; font-size: 11px; line-height: 1.6; }
+.conflict-list { display: grid; gap: 10px; padding: 0 18px 16px; max-height: 420px; overflow: auto; }
+.conflict-card { border: 1px solid #e5d8c8; border-radius: 11px; background: #fffdf9; overflow: hidden; }
+.conflict-card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: #f8efe3; }
+.conflict-card > header strong { margin-left: 8px; font-size: 13px; }
+.conflict-tag { padding: 2px 8px; border-radius: 5px; background: #8a4e25; color: #fff; font-size: 10px; }
+.conflict-field { color: #8a6a4c; font-size: 11px; font-weight: 700; }
+.conflict-opinions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; }
+.opinion-card { text-align: left; border: 1px dashed #cbb79d; border-radius: 10px; padding: 10px 12px; background: #fff; color: inherit; cursor: pointer; transition: border-color .15s, background .15s; }
+.opinion-card:hover { border-style: solid; border-color: #8a4e25; background: #fdf7ef; }
+.opinion-card.mine { border-color: #9dbbb3; background: #f4f9f6; }
+.opinion-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.opinion-source { font-size: 10px; font-weight: 800; color: #6f8079; }
+.opinion-choose { font-size: 10px; font-weight: 800; color: #8a4e25; opacity: 0; }
+.opinion-card:hover .opinion-choose { opacity: 1; }
+.opinion-card p { margin: 0; font-size: 12px; line-height: 1.55; word-break: break-word; }
+.conflict-card > footer { padding: 8px 14px; border-top: 1px solid #f0e6d8; color: #9a8a78; font-size: 10px; }
+.conflict-card > footer span { color: #5f6c67; }
+.resolved-list { display: grid; gap: 6px; padding: 12px 18px 16px; max-height: 320px; overflow: auto; }
+.resolved-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 8px; background: #f2f6f3; font-size: 11px; }
+.resolved-item span { color: #77847e; font-size: 10px; }
+.conflict-jump { border: 0; padding: 0; background: transparent; color: #ffd9a8; font-weight: 800; font-size: 11px; cursor: pointer; text-decoration: underline; }
+.save-state .offline { background: #d9a441; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(14, 31, 28, .58); backdrop-filter: blur(3px); }
 .modal-backdrop.hidden { display: none; }
 .modal-card { width: min(520px, 100%); max-height: 90vh; overflow: auto; padding: 22px; color: var(--ink); background: #fbfcfa; border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.3); }

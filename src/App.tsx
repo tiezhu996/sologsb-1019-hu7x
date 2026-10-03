@@ -4,6 +4,7 @@ import TranscriptPanel from './components/TranscriptPanel';
 import ThemeTree from './components/ThemeTree';
 import Inspector from './components/Inspector';
 import ImportDialog from './components/ImportDialog';
+import ConflictCenter from './components/ConflictCenter';
 import { CreateThemeDialog, MergeThemeDialog, SplitThemeDialog } from './components/ThemeDialogs';
 import { useCodingStore } from './store/coding-store';
 
@@ -85,7 +86,16 @@ export default function App() {
             <div><Typography variant="h6" component="div">访谈主题编码台</Typography><span>INTERPRETIVE CODING WORKBENCH</span></div>
           </div>
           <div class="top-actions">
-            <div class="save-state"><span classList={{ pulsing: !store.storageReady() }} />{store.remoteEnvelope() ? '检测到其他标签页修订' : store.storageReady() ? `已保存 · r${store.state.revision}` : '正在载入本地库'}</div>
+            <div class="save-state">
+              <span classList={{ pulsing: !store.storageReady(), offline: !store.online() }} />
+              <Show when={store.pendingConflicts().length > 0} fallback={<>
+                {!store.storageReady() ? '正在载入本地库' : store.online() ? `已保存 · r${store.state.revision}` : '离线工作中 · 本地保留'}
+              </>}>
+                <button class="conflict-jump" onClick={() => document.querySelector('.conflict-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+                  {store.pendingConflicts().length} 条字段冲突待选择
+                </button>
+              </Show>
+            </div>
             <Button color="inherit" size="small" disabled={!store.canUndo()} onClick={store.undo}>撤销</Button>
             <Button color="inherit" size="small" disabled={!store.canRedo()} onClick={store.redo}>重做</Button>
             <Button variant="outlined" color="inherit" size="small" onClick={() => setImportOpen(true)}>导入转写</Button>
@@ -94,13 +104,14 @@ export default function App() {
         </Toolbar>
       </AppBar>
 
-      <Show when={store.remoteEnvelope()}>
-        {(remote) => (
-          <div class="conflict-banner" role="alert">
-            <div><strong>另一个标签页写入了较新的版本</strong><span>本地数据库修订 r{remote().revision}。系统没有自动覆盖任何数据，请明确选择保留哪一份。</span></div>
-            <div><Button size="small" color="inherit" onClick={store.applyRemoteVersion}>载入其他标签页版本</Button><Button size="small" variant="contained" color="warning" onClick={store.keepLocalVersion}>保留本页并建立新修订</Button></div>
+      <Show when={store.pendingConflicts().length > 0}>
+        <div class="conflict-banner" role="alert">
+          <div>
+            <strong>检测到 {store.pendingConflicts().length} 个变更单元存在分歧</strong>
+            <span>不同单元的改动已自动合并；同一单元的两份结果均已保留，在你明确选择前都不会生效，也不会进入导出。</span>
           </div>
-        )}
+          <div><Button size="small" variant="contained" color="warning" onClick={() => document.querySelector('.conflict-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>前往逐条选择</Button></div>
+        </div>
       </Show>
 
       <section class="project-strip">
@@ -119,6 +130,10 @@ export default function App() {
         <Inspector store={store} />
       </main>
 
+      <section class="conflict-strip">
+        <ConflictCenter store={store} />
+      </section>
+
       <section class="lower-grid">
         <Paper class="panel codebook-panel" elevation={0}>
           <div class="panel-heading"><div><span class="eyebrow">CODEBOOK HEALTH</span><h3>编码册质量检查</h3></div><Chip label="实时" size="small" /></div>
@@ -130,14 +145,14 @@ export default function App() {
         </Paper>
         <Paper class="panel export-panel" elevation={0}>
           <div class="panel-heading"><div><span class="eyebrow">EXPORT & BACKUP</span><h3>研究数据出口</h3></div></div>
-          <p>导出包含完整主题路径、双编码者判断、备忘录、主题示例和审计记录。CSV 适合表格复核，JSON 可完整回档。</p>
+          <p>导出严格以字段级合并、并完成冲突选择后的结果为准；未处理冲突的任何一份意见都不会进入导出。CSV 适合表格复核，JSON 含完整账本与处理记录。</p>
           <div class="button-row"><Button variant="contained" onClick={() => store.downloadExport('json')}>下载 JSON 完整包</Button><Button variant="outlined" onClick={() => store.downloadExport('csv')}>下载 CSV 编码表</Button></div>
         </Paper>
       </section>
 
       <footer class="app-footer">
         <span>快捷键 J / K 切换片段 · 1–9 选择主题 · Alt+A / Alt+B 编码 · Ctrl+Z 撤销 · ? 查看帮助</span>
-        <span>IndexedDB 本地保存 · 多标签页显式冲突处理</span>
+        <span>IndexedDB + localStorage 双写 · 断网/重开浏览器保留本地改动与未处理冲突 · 字段级三方合并</span>
       </footer>
 
       <ImportDialog open={importOpen()} onClose={() => setImportOpen(false)} onImport={store.importTranscript} />
